@@ -1,4 +1,9 @@
-# The dev link to Pi Pocket's packages (as ~/.pi-pocket/extensions has): it resolves htm, preact, and
-# @earendil-works/pi-durable for the tests. Point it at a checkout's node_modules:
-#   ln -s /path/to/pi-pocket/node_modules node_modules
-node_modules
+# Installed packages: npm install makes these; the tests resolve htm, preact, and
+# @earendil-works/pi-durable from here.
+node_modules/
+
+# Editors and operating systems
+.DS_Store
+*.swp
+.idea/
+.vscode/

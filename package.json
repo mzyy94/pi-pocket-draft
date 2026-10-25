@@ -1,8 +1,20 @@
 {
     "name": "pi-pocket-drafts",
+    "version": "0.1.0",
+    "description": "A Pi Pocket extension: saved message drafts per session, with a button in the message box, a row in the session's menu, and chips in the session list.",
     "private": true,
     "type": "module",
+    "author": "Yuki MIZUNO",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mzyy94/pi-pocket-draft.git"
+    },
     "scripts": {
         "test": "node test/server.test.mjs && node test/sheet.test.mjs && node test/menu.test.mjs && node test/chips.test.mjs"
+    },
+    "devDependencies": {
+        "@earendil-works/pi-durable": "1.4.0",
+        "htm": "^3.1.1",
+        "preact": "^11.0.2"
     }
 }
