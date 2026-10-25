@@ -174,6 +174,15 @@ export default function setup(pocket) {
 
     pocket.sheet({ id: "drafts", title: "Drafts", component: Drafts });
 
+    // A row in the session's menu, as the persona picker has one.
+    pocket.menu({
+        id: "drafts",
+        label: "Drafts",
+        hint: "saved text",
+        group: "session",
+        sheet: "drafts",
+    });
+
     if (typeof pocket.composerButton === "function") {
         pocket.composerButton({ id: "drafts", title: "Drafts", iconPath: PEN, sheet: "drafts" });
     }
