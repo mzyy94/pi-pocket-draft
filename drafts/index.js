@@ -1,7 +1,8 @@
 /**
- * The drafts browser module: a button in the message box's row that opens a sheet of saved drafts. A person types text
- * and saves it; the draft lands below, newest first, in this tab's localStorage under `x.drafts.list`. Copying one puts
- * its text on the clipboard and takes it out of the list. Nothing leaves the tab: the server stores no draft.
+ * The drafts browser module: a button in the message box's row and a row in the session's menu, both opening a sheet
+ * of the session's saved drafts. A person types text and saves it; the draft lands below, newest first. Copying one
+ * puts its text on the clipboard and takes it out of the list. The drafts live in `drafts.ts`' per-session document,
+ * so they follow the session across tabs and devices.
  */
 
 /** The version of `pocket` this module was written for. */
@@ -9,9 +10,6 @@ export const pocketApi = 1;
 
 /** A pencil, for a message not sent yet. */
 const PEN = "M17 3a2.83 2.83 0 014 4L7.5 20.5 2 22l1.5-5.5L17 3Z";
-
-/** The tab's drafts, newest first. One key, as the app names browser data. */
-const STORE_KEY = "x.drafts.list";
 
 /** A first line for a row, short enough to keep it on one line. */
 function preview(text) {
@@ -24,48 +22,17 @@ function errorText(error) {
     return error instanceof Error ? error.message : String(error);
 }
 
-/** The drafts in this tab's localStorage, or none: a bad value must not stop the sheet. */
-function readDrafts() {
-    try {
-        const raw = window.localStorage.getItem(STORE_KEY);
-
-        if (raw === null) {
-            return [];
-        }
-
-        const value = JSON.parse(raw);
-
-        if (!Array.isArray(value)) {
-            return [];
-        }
-
-        return value.filter(
-            (each) =>
-                each !== null &&
-                typeof each === "object" &&
-                typeof each.id === "string" &&
-                each.id !== "" &&
-                typeof each.text === "string" &&
-                typeof each.savedAt === "number",
-        );
-    } catch {
-        return [];
-    }
-}
-
-function writeDrafts(drafts) {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(drafts));
-}
-
 export default function setup(pocket) {
     const { html, useEffect, useRef, useState } = pocket;
 
-    /* ── The sheet: save a draft, copy one back ─────────────────────────────────────────────── */
+    /* ── The sheet: save a draft for the session, copy one back ─────────────────────────────── */
 
     function Drafts() {
+        const session = pocket.conversationId();
         const [text, setText] = useState("");
-        const [drafts, setDrafts] = useState(() => readDrafts());
+        const [drafts, setDrafts] = useState(null);
         const [error, setError] = useState(null);
+        const [busy, setBusy] = useState(false);
         const box = useRef(null);
 
         // The sheet opens with the field ready to type into.
@@ -73,46 +40,86 @@ export default function setup(pocket) {
             requestAnimationFrame(() => box.current?.focus());
         }, []);
 
-        // Another tab of this person saved or copied a draft: show the same list here.
-        useEffect(() => {
-            const onStorage = (event) => {
-                if (event.key === STORE_KEY) {
-                    setDrafts(readDrafts());
+        const load = async (signal) => {
+            try {
+                const data = await pocket.api(`list/${session}`, undefined, { signal });
+
+                setDrafts(data.drafts);
+                setError(null);
+            } catch (failure) {
+                if (!signal?.aborted) {
+                    setError(errorText(failure));
                 }
+            }
+        };
+
+        useEffect(() => {
+            const controller = new AbortController();
+            void load(controller.signal);
+            // Another tab saved or copied a draft of this session: show the same list here.
+            const off = pocket.on("drafts", (data) => {
+                if (data !== null && typeof data === "object" && data.session === session) {
+                    void load();
+                }
+            });
+
+            return () => {
+                controller.abort();
+                off();
             };
-
-            window.addEventListener("storage", onStorage);
-
-            return () => window.removeEventListener("storage", onStorage);
         }, []);
-
-        function refresh(next) {
-            writeDrafts(next);
-            setDrafts(next);
-        }
 
         async function save() {
             const value = text.trim();
 
-            if (value === "") {
-                setError("Type something to save first.");
+            if (value === "" || busy) {
                 return;
             }
 
+            setBusy(true);
             setError(null);
-            refresh([{ id: crypto.randomUUID(), text: value, savedAt: Date.now() }, ...drafts]);
-            setText("");
-            requestAnimationFrame(() => box.current?.focus());
+
+            try {
+                const data = await pocket.api(`drafts/${session}`, { text: value }, { method: "POST" });
+
+                setDrafts([data.draft, ...drafts]);
+                setText("");
+                requestAnimationFrame(() => box.current?.focus());
+            } catch (failure) {
+                setError(errorText(failure));
+            } finally {
+                setBusy(false);
+            }
         }
 
         async function copy(draft) {
+            if (busy) {
+                return;
+            }
+
+            setBusy(true);
+            setError(null);
+
             try {
                 // A secure context, so the clipboard answers; the draft leaves the list only once it is copied.
                 await navigator.clipboard.writeText(draft.text);
-                refresh(drafts.filter((each) => each.id !== draft.id));
+                await pocket.api(`drafts/${session}/${encodeURIComponent(draft.id)}`, undefined, {
+                    method: "DELETE",
+                });
+                setDrafts(drafts.filter((each) => each.id !== draft.id));
             } catch (failure) {
-                setError(`Could not copy: ${errorText(failure)}`);
+                setError(errorText(failure));
+            } finally {
+                setBusy(false);
             }
+        }
+
+        if (session === null) {
+            return html`<p class="muted">Open a session first: drafts are saved per session.</p>`;
+        }
+
+        if (drafts === null) {
+            return html`<${pocket.Loader} label="Reading drafts" />`;
         }
 
         return html`<div class="x-drafts">
@@ -124,6 +131,7 @@ export default function setup(pocket) {
                     rows=${4}
                     value=${text}
                     placeholder="What you want to say, for later…"
+                    disabled=${busy}
                     onInput=${(event) => setText(event.currentTarget.value)}
                     onKeyDown=${(event) => {
                         if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -137,7 +145,7 @@ export default function setup(pocket) {
                 <button
                     type="button"
                     class="button primary"
-                    disabled=${text.trim() === ""}
+                    disabled=${text.trim() === "" || busy}
                     onClick=${() => void save()}
                 >
                     Save draft
@@ -159,6 +167,7 @@ export default function setup(pocket) {
                                 type="button"
                                 class="button x-drafts-copy"
                                 title="Copy to the clipboard and remove this draft"
+                                disabled=${busy}
                                 onClick=${() => void copy(draft)}
                             >
                                 <${pocket.Icon} name="copy" size=${14} />
