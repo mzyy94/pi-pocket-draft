@@ -2,6 +2,8 @@
 
 A [Pi Pocket](https://github.com/TannerMidd/pi-pocket) extension for saving message drafts **per session**. Type something you want to say later, keep it out of the way, and put it back into the message box when the moment comes. Drafts live on the server, in a Pi Durable document per conversation, so they follow the session across tabs and devices.
 
+![The session list: a pencil-and-count chip under the title of the one session that has drafts](docs/screenshot-session-chip.png)
+
 ## What you get
 
 | Where | What |
@@ -10,12 +12,16 @@ A [Pi Pocket](https://github.com/TannerMidd/pi-pocket) extension for saving mess
 | The session's menu | A **Drafts** row whose hint says how many drafts the session has (`3 saved`) |
 | The session list | A `✎ 2` chip under the title of every session that has drafts. Tapping it opens that session, then its Drafts sheet |
 
+![The message box's row: the pencil button at its left](docs/screenshot-composer-button.png)
+
 Inside the sheet:
 
 - **Save** a draft from the field at the top (button or Ctrl/⌘+Enter). New drafts land on top.
 - **Use** a draft: its text goes into the message box on a new paragraph, the sheet closes so the box shows, and the draft leaves the list. It is never sent; the person sends it, or not. Nothing touches the clipboard.
 - **Edit** a draft: the row expands into a field prefilled with its text. Save overwrites it in place (Ctrl/⌘+Enter works here too); Cancel leaves it as it was.
 - **Delete** asks twice, the way the app's own confirm buttons do: the first press arms the button red (`Delete it`), the second takes the draft out. Stepping away disarms it.
+
+![The Drafts sheet: the field to save into, and the saved drafts with their Use, Edit, and Delete buttons](docs/screenshot-drafts-sheet.png)
 
 Everything stays current without reloading: the menu hint and the list's chips refresh on the module's own `drafts` events, which reach every tab of the person that loads the module, and on conversation changes.
 
@@ -64,6 +70,7 @@ drafts/            the browser module, served to the owner's tabs
   index.js         the sheet, the button, the menu row, the chips
   style.css        its look, in the app's theme tokens
 _pocket.d.ts       a copy of Pi Pocket's public types (refreshed where installed)
+docs/              the README's screenshots
 test/              the test suite, see below
 ```
 
