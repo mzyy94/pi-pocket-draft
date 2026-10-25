@@ -387,6 +387,46 @@ export default function setup(pocket) {
     const counts = new Map();
     let chipItem = null;
 
+    // A chip tap opens its session, then the sheet: sheets close when the conversation changes, so the sheet waits
+    // for the tab to show that session. An intent that does not land in a few seconds gives up.
+    let openIntent = null;
+
+    function cancelOpenIntent() {
+        if (openIntent === null) {
+            return;
+        }
+
+        clearTimeout(openIntent.timer);
+        openIntent.stop();
+        openIntent = null;
+    }
+
+    function openDraftsFor(session) {
+        const target = session.id;
+
+        if (pocket.conversationId() === target) {
+            pocket.openSheet("drafts");
+            return;
+        }
+
+        if (typeof pocket.openConversation !== "function" || typeof pocket.onConversation !== "function") {
+            return;
+        }
+
+        cancelOpenIntent();
+
+        const stop = pocket.onConversation((id) => {
+            if (id === target) {
+                cancelOpenIntent();
+                pocket.openSheet("drafts");
+            }
+        });
+
+        openIntent = { stop, timer: setTimeout(cancelOpenIntent, 5000) };
+
+        pocket.openConversation(target);
+    }
+
     function chipFor(session) {
         const n = counts.get(session.id);
 
@@ -398,7 +438,7 @@ export default function setup(pocket) {
             {
                 label: `✎ ${String(n)}`,
                 title: `${String(n)} saved draft${n === 1 ? "" : "s"} — tap to open`,
-                run: () => pocket.openSheet("drafts"),
+                run: () => openDraftsFor(session),
             },
         ];
     }
@@ -437,6 +477,8 @@ export default function setup(pocket) {
     }
 
     return () => {
+        cancelOpenIntent();
+
         for (const stop of stops) {
             stop();
         }
