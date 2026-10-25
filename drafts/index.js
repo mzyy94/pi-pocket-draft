@@ -331,14 +331,55 @@ export default function setup(pocket) {
 
     pocket.sheet({ id: "drafts", title: "Drafts", component: Drafts });
 
-    // A row in the session's menu, as the persona picker has one.
-    pocket.menu({
-        id: "drafts",
-        label: "Drafts",
-        hint: "saved text",
-        group: "session",
-        sheet: "drafts",
-    });
+    // A row in the session's menu, as the persona picker has one. Its hint says how many drafts the tab's session
+    // has, kept current by conversation changes and the module's own events.
+    const menuRow =
+        typeof pocket.menu === "function"
+            ? pocket.menu({ id: "drafts", label: "Drafts", hint: "", group: "session", sheet: "drafts" })
+            : null;
+
+    let countSession = typeof pocket.conversationId === "function" ? pocket.conversationId() : null;
+    let countSeq = 0;
+
+    async function refreshCount(session) {
+        if (menuRow === null || session === null) {
+            return;
+        }
+
+        const mine = ++countSeq;
+
+        try {
+            const data = await pocket.api(`list/${session}`);
+
+            if (mine === countSeq) {
+                menuRow.update({ hint: `${data.drafts.length} saved` });
+            }
+        } catch {
+            // The row's hint stays as it was; the sheet says what went wrong when it opens.
+        }
+    }
+
+    const stops = [];
+
+    if (typeof pocket.onConversation === "function") {
+        stops.push(
+            pocket.onConversation((id) => {
+                countSession = id;
+                void refreshCount(id);
+            }),
+        );
+    }
+
+    // The tab's own save, edit, use, and delete change the count too; other tabs of the session come as events.
+    stops.push(
+        pocket.on("drafts", (data) => {
+            if (data !== null && typeof data === "object" && data.session === countSession) {
+                void refreshCount(countSession);
+            }
+        }),
+    );
+
+    void refreshCount(countSession);
 
     if (typeof pocket.composerButton === "function") {
         pocket.composerButton({ id: "drafts", title: "Drafts", iconPath: PEN, sheet: "drafts" });
@@ -347,4 +388,10 @@ export default function setup(pocket) {
     if (typeof pocket.style === "function") {
         pocket.style("style.css");
     }
+
+    return () => {
+        for (const stop of stops) {
+            stop();
+        }
+    };
 }
