@@ -109,6 +109,32 @@ export default function createDrafts(_host: unknown, web: Web) {
         return { draft };
     });
 
+    // Editing a draft overwrites its text; the draft keeps its place in the list.
+    web.route("PUT", "drafts/:session/:id", async ({ params, body, commit, sessions }) => {
+        const session = sessionOf(params.session, web);
+
+        if (!sessions().some((each) => each.id === session)) {
+            throw web.error(404, "No such session");
+        }
+
+        const text = textOf(body.text, web);
+
+        await commit(async (tx) => {
+            const doc = await tx.doc(SessionDrafts, conversationOf(session));
+            const index = doc.drafts.findIndex((each) => each.id === params.id);
+
+            if (index === -1) {
+                throw web.error(404, "No such draft");
+            }
+
+            doc.drafts[index] = { ...doc.drafts[index], text, savedAt: Date.now() };
+        });
+
+        web.send("drafts", { session });
+
+        return { ok: true };
+    });
+
     // Copying a draft takes it out of the list. Throwing rolls the commit back, so a bad id changes nothing.
     web.route("DELETE", "drafts/:session/:id", async ({ params, commit, sessions }) => {
         const session = sessionOf(params.session, web);

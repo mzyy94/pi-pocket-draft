@@ -49,8 +49,9 @@
 
 .x-drafts-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 8px 12px;
     padding: 10px 12px;
     border: 1px solid var(--line);
     border-radius: var(--r-card);
@@ -70,10 +71,30 @@
     white-space: nowrap;
 }
 
-.x-drafts-copy {
-    display: inline-flex;
+/* The row's actions, on one line where they fit and below the text on a narrow screen. */
+.x-drafts-acts {
+    display: flex;
     flex-shrink: 0;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+}
+
+.x-drafts-act {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    font-size: 0.85rem;
+}
+
+/* Armed for the second press, as the app's own confirm buttons go red. */
+.x-drafts-danger {
+    border-color: var(--err);
+    color: var(--err);
+}
+
+/* A row being edited: the field and its actions, stacked. */
+.x-drafts-editing {
+    flex-direction: column;
+    align-items: stretch;
 }

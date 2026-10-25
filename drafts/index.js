@@ -1,8 +1,9 @@
 /**
  * The drafts browser module: a button in the message box's row and a row in the session's menu, both opening a sheet
  * of the session's saved drafts. A person types text and saves it; the draft lands below, newest first. Copying one
- * puts its text on the clipboard and takes it out of the list. The drafts live in `drafts.ts`' per-session document,
- * so they follow the session across tabs and devices.
+ * puts its text on the clipboard and takes it out of the list. Editing one expands it into a field to save over or
+ * cancel. Deleting one asks twice: the first press arms the button, the second takes the draft out. The drafts live in
+ * `drafts.ts`' per-session document, so they follow the session across tabs and devices.
  */
 
 /** The version of `pocket` this module was written for. */
@@ -33,12 +34,24 @@ export default function setup(pocket) {
         const [drafts, setDrafts] = useState(null);
         const [error, setError] = useState(null);
         const [busy, setBusy] = useState(false);
+        // The draft being edited, `{ id, text }`, or none.
+        const [editing, setEditing] = useState(null);
+        // The id whose Delete button is armed: the first press arms it, the second deletes.
+        const [armed, setArmed] = useState(null);
         const box = useRef(null);
+        const editBox = useRef(null);
 
         // The sheet opens with the field ready to type into.
         useEffect(() => {
             requestAnimationFrame(() => box.current?.focus());
         }, []);
+
+        // An editor opens with its field ready to type into.
+        useEffect(() => {
+            if (editing !== null) {
+                requestAnimationFrame(() => editBox.current?.focus());
+            }
+        }, [editing === null]);
 
         const load = async (signal) => {
             try {
@@ -56,7 +69,7 @@ export default function setup(pocket) {
         useEffect(() => {
             const controller = new AbortController();
             void load(controller.signal);
-            // Another tab saved or copied a draft of this session: show the same list here.
+            // Another tab saved, edited, or copied a draft of this session: show the same list here.
             const off = pocket.on("drafts", (data) => {
                 if (data !== null && typeof data === "object" && data.session === session) {
                     void load();
@@ -114,6 +127,79 @@ export default function setup(pocket) {
             }
         }
 
+        function startEdit(draft) {
+            if (busy) {
+                return;
+            }
+
+            setArmed(null);
+            setError(null);
+            setEditing({ id: draft.id, text: draft.text });
+        }
+
+        function cancelEdit() {
+            if (busy) {
+                return;
+            }
+
+            setEditing(null);
+        }
+
+        async function saveEdit() {
+            const value = editing?.text.trim();
+
+            if (editing === null || value === "" || busy) {
+                return;
+            }
+
+            setBusy(true);
+            setError(null);
+
+            try {
+                await pocket.api(`drafts/${session}/${encodeURIComponent(editing.id)}`, { text: value }, {
+                    method: "PUT",
+                });
+
+                setDrafts(
+                    drafts.map((each) =>
+                        each.id === editing.id ? { ...each, text: value, savedAt: Date.now() } : each,
+                    ),
+                );
+                setEditing(null);
+            } catch (failure) {
+                setError(errorText(failure));
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        // The first press arms the button; only the armed second one deletes.
+        async function remove(draft) {
+            if (busy || armed !== draft.id) {
+                return;
+            }
+
+            setBusy(true);
+            setError(null);
+
+            try {
+                await pocket.api(`drafts/${session}/${encodeURIComponent(draft.id)}`, undefined, {
+                    method: "DELETE",
+                });
+
+                setArmed(null);
+                if (editing?.id === draft.id) {
+                    setEditing(null);
+                }
+
+                setDrafts(drafts.filter((each) => each.id !== draft.id));
+            } catch (failure) {
+                setError(errorText(failure));
+            } finally {
+                setBusy(false);
+            }
+        }
+
         if (session === null) {
             return html`<p class="muted">Open a session first: drafts are saved per session.</p>`;
         }
@@ -159,13 +245,50 @@ export default function setup(pocket) {
                         ? "No drafts yet. Copying one puts it on the clipboard and takes it out of the list."
                         : `${drafts.length} saved. Copying one puts it on the clipboard and takes it out of the list.`}
                 </p>
-                ${drafts.map(
-                    (draft) =>
-                        html`<div class="x-drafts-row" key=${draft.id}>
-                            <span class="x-drafts-row-text" title=${draft.text}>${preview(draft.text)}</span>
+                ${drafts.map((draft) => {
+                    if (editing?.id === draft.id) {
+                        return html`<div class="x-drafts-row x-drafts-editing" key=${draft.id}>
+                            <textarea
+                                ref=${editBox}
+                                class="x-drafts-text"
+                                rows=${4}
+                                value=${editing.text}
+                                disabled=${busy}
+                                onInput=${(event) => setEditing({ id: draft.id, text: event.currentTarget.value })}
+                                onKeyDown=${(event) => {
+                                    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                                        event.preventDefault();
+                                        void saveEdit();
+                                    }
+                                }}
+                            ></textarea>
+                            <div class="x-drafts-actions">
+                                <button
+                                    type="button"
+                                    class="button primary x-drafts-act"
+                                    disabled=${editing.text.trim() === "" || busy}
+                                    onClick=${() => void saveEdit()}
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    class="button x-drafts-act"
+                                    disabled=${busy}
+                                    onClick=${cancelEdit}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>`;
+                    }
+
+                    return html`<div class="x-drafts-row" key=${draft.id}>
+                        <span class="x-drafts-row-text" title=${draft.text}>${preview(draft.text)}</span>
+                        <span class="x-drafts-acts">
                             <button
                                 type="button"
-                                class="button x-drafts-copy"
+                                class="button x-drafts-act"
                                 title="Copy to the clipboard and remove this draft"
                                 disabled=${busy}
                                 onClick=${() => void copy(draft)}
@@ -173,8 +296,28 @@ export default function setup(pocket) {
                                 <${pocket.Icon} name="copy" size=${14} />
                                 Copy
                             </button>
-                        </div>`,
-                )}
+                            <button
+                                type="button"
+                                class="button x-drafts-act"
+                                title="Edit this draft"
+                                disabled=${busy}
+                                onClick=${() => startEdit(draft)}
+                            >
+                                Edit
+                            </button>
+                            <button
+                                type="button"
+                                class=${`button x-drafts-act${armed === draft.id ? " x-drafts-danger" : ""}`}
+                                title=${armed === draft.id ? "Press again to delete this draft" : "Delete this draft"}
+                                disabled=${busy}
+                                onClick=${() => (armed === draft.id ? void remove(draft) : setArmed(draft.id))}
+                                onBlur=${() => armed === draft.id && setArmed(null)}
+                            >
+                                ${armed === draft.id ? "Delete it" : "Delete"}
+                            </button>
+                        </span>
+                    </div>`;
+                })}
             </div>
         </div>`;
     }
