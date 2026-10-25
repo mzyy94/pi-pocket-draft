@@ -1,9 +1,9 @@
 /**
  * The drafts browser module: a button in the message box's row and a row in the session's menu, both opening a sheet
- * of the session's saved drafts. A person types text and saves it; the draft lands below, newest first. Copying one
- * puts its text on the clipboard and takes it out of the list. Editing one expands it into a field to save over or
- * cancel. Deleting one asks twice: the first press arms the button, the second takes the draft out. The drafts live in
- * `drafts.ts`' per-session document, so they follow the session across tabs and devices.
+ * of the session's saved drafts. A person types text and saves it; the draft lands below, newest first. Using one puts
+ * its text into the message box, closes the sheet, and takes it out of the list. Editing one expands it into a field to
+ * save over or cancel. Deleting one asks twice: the first press arms the button, the second takes the draft out. The
+ * drafts live in `drafts.ts`' per-session document, so they follow the session across tabs and devices.
  */
 
 /** The version of `pocket` this module was written for. */
@@ -105,8 +105,13 @@ export default function setup(pocket) {
             }
         }
 
-        async function copy(draft) {
+        async function use(draft) {
             if (busy) {
+                return;
+            }
+
+            if (typeof pocket.insertText !== "function") {
+                setError("This app is too old to put a draft in the message box.");
                 return;
             }
 
@@ -114,8 +119,8 @@ export default function setup(pocket) {
             setError(null);
 
             try {
-                // A secure context, so the clipboard answers; the draft leaves the list only once it is copied.
-                await navigator.clipboard.writeText(draft.text);
+                // It closes the sheet, so the box shows; the draft leaves the list only once it is in the box.
+                pocket.insertText(draft.text);
                 await pocket.api(`drafts/${session}/${encodeURIComponent(draft.id)}`, undefined, {
                     method: "DELETE",
                 });
@@ -242,8 +247,8 @@ export default function setup(pocket) {
             <div class="x-drafts-list">
                 <p class="muted small x-drafts-count">
                     ${drafts.length === 0
-                        ? "No drafts yet. Copying one puts it on the clipboard and takes it out of the list."
-                        : `${drafts.length} saved. Copying one puts it on the clipboard and takes it out of the list.`}
+                        ? "No drafts yet. Using one puts it in the message box and takes it out of the list."
+                        : `${drafts.length} saved. Using one puts it in the message box and takes it out of the list.`}
                 </p>
                 ${drafts.map((draft) => {
                     if (editing?.id === draft.id) {
@@ -289,12 +294,12 @@ export default function setup(pocket) {
                             <button
                                 type="button"
                                 class="button x-drafts-act"
-                                title="Copy to the clipboard and remove this draft"
+                                title="Put this draft in the message box and remove it"
                                 disabled=${busy}
-                                onClick=${() => void copy(draft)}
+                                onClick=${() => void use(draft)}
                             >
-                                <${pocket.Icon} name="copy" size=${14} />
-                                Copy
+                                <${pocket.Icon} name="send" size=${14} />
+                                Use
                             </button>
                             <button
                                 type="button"
