@@ -1,0 +1,8 @@
+{
+    "name": "pi-pocket-drafts",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test": "node test/server.test.mjs && node test/sheet.test.mjs && node test/menu.test.mjs && node test/chips.test.mjs"
+    }
+}
