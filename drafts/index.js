@@ -381,6 +381,53 @@ export default function setup(pocket) {
 
     void refreshCount(countSession);
 
+    /* ── Chips under the titles of sessions that have drafts ─────────────────────────────── */
+
+    // The list's chips answer at once, so the counts live in a map the events keep current.
+    const counts = new Map();
+    let chipItem = null;
+
+    function chipFor(session) {
+        const n = counts.get(session.id);
+
+        if (!n) {
+            return [];
+        }
+
+        return [
+            {
+                label: `✎ ${String(n)}`,
+                title: `${String(n)} saved draft${n === 1 ? "" : "s"} — tap to open`,
+                run: () => pocket.openSheet("drafts"),
+            },
+        ];
+    }
+
+    async function refreshCounts() {
+        try {
+            const data = await pocket.api("counts");
+
+            counts.clear();
+
+            for (const [id, n] of Object.entries(data.counts ?? {})) {
+                counts.set(Number(id), n);
+            }
+
+            // A new function each time: the list's unchanged rows skip a draw for one they have seen.
+            if (chipItem !== null) {
+                chipItem.update({ chips: (session) => chipFor(session) });
+            }
+        } catch {
+            // The chips keep what they show; the sheet says what went wrong when it opens.
+        }
+    }
+
+    if (typeof pocket.sessionChips === "function") {
+        chipItem = pocket.sessionChips({ id: "drafts", chips: chipFor });
+        void refreshCounts();
+        stops.push(pocket.on("drafts", () => void refreshCounts()));
+    }
+
     if (typeof pocket.composerButton === "function") {
         pocket.composerButton({ id: "drafts", title: "Drafts", iconPath: PEN, sheet: "drafts" });
     }

@@ -159,6 +159,21 @@ export default function createDrafts(_host: unknown, web: Web) {
         return { ok: true };
     });
 
+    // The count of each session that has drafts, for the session list's chips; empty sessions keep no entry.
+    web.route("GET", "counts", async ({ snapshot, context, sessions }) => {
+        const counts: Record<string, number> = {};
+
+        for (const each of sessions()) {
+            const doc = await snapshot(SessionDrafts, conversationOf(each.id), context);
+
+            if (doc && doc.drafts.length > 0) {
+                counts[each.id] = doc.drafts.length;
+            }
+        }
+
+        return { counts };
+    });
+
     // The button, the menu row, and the sheet live in the folder beside this file.
     web.client("drafts");
 }
