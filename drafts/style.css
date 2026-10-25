@@ -1,0 +1,79 @@
+/* Drafts: the sheet of saved drafts, opened from the message box's row. Tokens follow the theme; a theme's rules win
+   over these. */
+
+.x-drafts {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.x-drafts-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.x-drafts-text {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 96px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.x-drafts-text:focus {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+}
+
+.x-drafts-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.x-drafts-count {
+    margin: 0 0 6px;
+}
+
+.x-drafts-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.x-drafts-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    background: var(--card);
+}
+
+.x-drafts-row + .x-drafts-row {
+    margin-top: 6px;
+}
+
+.x-drafts-row-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.x-drafts-copy {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+}
