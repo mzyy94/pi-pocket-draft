@@ -1,8 +1,26 @@
 # Pi Pocket Drafts
 
-A [Pi Pocket](https://github.com/TannerMidd/pi-pocket) extension for saving message drafts **per session**. Type something you want to say later, keep it out of the way, and put it back into the message box when the moment comes. Drafts live on the server, in a Pi Durable document per conversation, so they follow the session across tabs and devices.
+A [Pi Pocket](https://github.com/TannerMidd/pi-pocket) extension for saving message drafts **per session**. Type something you want to say later, keep it out of the way, and put it back into the message box when the moment comes. Drafts live on the server, in a Pi Durable document per conversation, so they follow the session across tabs and devices. Written with [Swift-1.5-Qwen3.8-27b](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b).
 
 ![The session list: a pencil-and-count chip under the title of the one session that has drafts](docs/screenshot-session-chip.png)
+
+## Install by asking an agent
+
+Installing is one short message to any coding agent (Pi, Claude, your favorite LLM) running on the machine that hosts Pi Pocket. Pick the prompt that fits where you are:
+
+**Nowhere near a clone of this repository:**
+
+```
+Clone https://github.com/mzyy94/pi-pocket-draft.git, copy drafts.ts and the drafts/ folder from its root into ~/.pi-pocket/extensions/, read its README.md, give me a short rundown of what the extension does, and tell me how to turn it on under Menu → Extensions.
+```
+
+**Already inside a clone of this repository:**
+
+```
+Copy drafts.ts and the drafts/ folder into ~/.pi-pocket/extensions/, read README.md, give me a short rundown of what the extension does, and tell me how to turn it on under Menu → Extensions.
+```
+
+Pi Pocket picks up new extension files on its own, so no restart is needed; the manual way is below in [Install](#install).
 
 ## What you get
 
